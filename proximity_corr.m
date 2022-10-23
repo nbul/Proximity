@@ -23,7 +23,7 @@ if exist([filedir,'/images_analysed'],'dir') == 0
 end
 im_dir = [filedir, '/images_analysed'];
 
-Intensity_corr = [0,0];
+Intensity_corr = [0,0, 0, 0];
 
 %Reading 16-bit average intensity projection files (border protein)
 cd(bor_dir);
@@ -31,7 +31,7 @@ files_tif = dir('*.tif');
 
 %%introduce here the number of columns in the summary table
 summary = zeros(numel(files_tif),11);
-summary2 = zeros(numel(files_tif)+1,2);
+summary2 = zeros(numel(files_tif)+1,4);
 %%write a loop that gets data
 for k=1:numel(files_tif)
     
@@ -65,8 +65,8 @@ for k=1:numel(files_tif)
     SignalSke_original = imread([num2str(k),'.tif']);
     SignalSke=imadjust(SignalSke_original);
     cd(bor_dir);
-    SignalBor = imread([num2str(k),'.tif']);
-    SignalBor = imadjust(SignalBor);
+    SignalBor_original = imread([num2str(k),'.tif']);
+    SignalBor = imadjust(SignalBor_original);
     
     thresh = 2.5*graythresh(SignalBor);
     if thresh > 1
@@ -123,10 +123,15 @@ for k=1:numel(files_tif)
     IntensitySke = regionprops(CC, SignalSke, 'MeanIntensity');
     IntensityBor = regionprops(CC, SignalBor, 'MeanIntensity');
     
-    [r,p] = corrcoef([IntensityBor.MeanIntensity]', [IntensitySke.MeanIntensity]');
-    summary2(k,:) = [r(1,2), p(1,2)];
+    IntensitySkeor = regionprops(CC, SignalSke_original, 'MeanIntensity');
+    IntensityBoror = regionprops(CC, SignalBor_original, 'MeanIntensity');
     
-    Intensity_corr = [Intensity_corr; [IntensityBor.MeanIntensity]', [IntensitySke.MeanIntensity]'];
+    [r,p] = corrcoef([IntensityBor.MeanIntensity]', [IntensitySke.MeanIntensity]');
+    [r2,p2] = corrcoef([IntensityBoror.MeanIntensity]', [IntensitySkeor.MeanIntensity]');
+    summary2(k,:) = [r(1,2), p(1,2), r2(1,2), p2(1,2)];
+    
+    Intensity_corr = [Intensity_corr; [IntensityBor.MeanIntensity]', [IntensitySke.MeanIntensity]',...
+        [IntensityBoror.MeanIntensity]', [IntensitySkeor.MeanIntensity]'];
 end
 
 
@@ -134,14 +139,16 @@ cd(filedir);
 Intensity_corr(1,:) = [];
 [r,p] = corrcoef(Intensity_corr(:,1), Intensity_corr(:,2));
 
-summary2(end,:) = [r(1,2), p(1,2)];
+[r2,p2] = corrcoef(Intensity_corr(:,3), Intensity_corr(:,4));
+
+summary2(end,:) = [r(1,2), p(1,2), r2(1,2), p2(1,2)];
 
 correlation = array2table(Intensity_corr);
-correlation.Properties.VariableNames = {'PCP', 'Signal'};
+correlation.Properties.VariableNames = {'PCP', 'Signal', 'PCP_or', 'Signal_or'};
 writetable(correlation,'punctaintensities.csv');
 
 correlation2 = array2table(summary2);
-correlation2.Properties.VariableNames = {'r', 'pvalue'};
+correlation2.Properties.VariableNames = {'r', 'pvalue','r_original', 'pvalue_original'};
 writetable(correlation2,'punctacorrelation.csv');
 
 all = array2table(summary);
