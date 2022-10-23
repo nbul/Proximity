@@ -23,12 +23,14 @@ if exist([filedir,'/images_analysed'],'dir') == 0
 end
 im_dir = [filedir, '/images_analysed'];
 
+Intensity_corr = [0,0];
+
 %Reading 16-bit average intensity projection files (border protein)
 cd(bor_dir);
 files_tif = dir('*.tif');
 
 %%introduce here the number of columns in the summary table
-summary = zeros(numel(files_tif),9);
+summary = zeros(numel(files_tif),11);
 %%write a loop that gets data
 for k=1:numel(files_tif)
     
@@ -52,7 +54,7 @@ for k=1:numel(files_tif)
     IC4 = IC3 - IC2;
     %generates the complement
     [ic1,ic2] = find(IC4==1);
-    B = [ic1,ic2];
+    B =[ic1,ic2];
     %finds the position of the pixels that are borders
     cd(ske_dir);
     %%use this line instead of the next two to use the original skeleton image
@@ -69,7 +71,7 @@ for k=1:numel(files_tif)
     if thresh > 1
         thresh = 0.8;
     end
-    Puncta = imbinarize(SignalBor, thresh);
+    Puncta = bwareaopen(imbinarize(SignalBor, thresh),10);
     
     Image1 = figure;
     imshowpair(SignalBor,Puncta,'montage');
@@ -103,28 +105,47 @@ for k=1:numel(files_tif)
     Signal_Ske_P = mean(Signal_line(Signal_P == 1));
     Signal_Ske_nonP = mean(Signal_line(Signal_nonP == 1));
     Signal_Ske_halo = mean(Signal_line(Signal_PD == 1));
+    Signal_Ske_nonP_halo = mean(Signal_line(Signal_nonPD == 1));
     Signal_Ske_cyto = mean(Signal_line(Signal_Cyto == 1));
     
     Signal_Bor_P = mean(Signal_line_ds(Signal_P == 1));
     Signal_Bor_nonP = mean(Signal_line_ds(Signal_nonP == 1));
     Signal_Bor_halo = mean(Signal_line_ds(Signal_PD == 1));
+    Signal_Bor_nonP_halo = mean(Signal_line_ds(Signal_nonPD == 1));
     Signal_Bor_cyto = mean(Signal_line_ds(Signal_Cyto == 1));
     
-    summary(k,:) = [k, Signal_Ske_P, Signal_Ske_halo, Signal_Ske_nonP, Signal_Ske_cyto,...
-        Signal_Bor_P, Signal_Bor_halo, Signal_Bor_nonP, Signal_Bor_cyto];
+    summary(k,:) = [k, Signal_Ske_P, Signal_Ske_halo, Signal_Ske_nonP, Signal_Ske_nonP_halo, Signal_Ske_cyto,...
+        Signal_Bor_P, Signal_Bor_halo, Signal_Bor_nonP, Signal_Bor_nonP_halo, Signal_Bor_cyto];
     
+    CC = bwconncomp(Signal_P,8);
+    S = regionprops(CC,'Area');
+    IntensitySke = regionprops(CC, SignalSke, 'MeanIntensity');
+    IntensityBor = regionprops(CC, SignalBor, 'MeanIntensity');
     
+    Intensity_corr = [Intensity_corr; [IntensityBor.MeanIntensity]', [IntensitySke.MeanIntensity]'];
 end
 
 
 cd(filedir);
+Intensity_corr(1,:) = [];
+[r, p] = corrcoef(Intensity_corr(:,1), Intensity_corr(:,2));
+
+Intensity_corr = [Intensity_corr; 0,0; r(1,2), p(1,2)];
+correlation = array2table(Intensity_corr);
+correlation.Properties.VariableNames = {'PCP', 'Signal'};
+writetable(correlation,'punctaintensities.csv');
+
 all = array2table(summary);
-all.Properties.VariableNames = {'Wing', 'Tubulin_puncta', 'Tubulin_puncta_halo', 'Tubulin_nopuncta', 'Tubulin_cyto',...
-    'Ds_puncta', 'Ds_puncta_halo', 'Ds_nopuncta', 'Ds_cyto'};
+all.Properties.VariableNames = {'Wing', 'Tubulin_puncta', 'Tubulin_puncta_halo', 'Tubulin_nopuncta', 'Tubulin_nonpuncta_halo', 'Tubulin_cyto',...
+    'Ds_puncta', 'Ds_puncta_halo', 'Ds_nopuncta', 'Ds_nopuncta_halo', 'Ds_cyto'};
 
-summary(:,2:5) = summary(:,2:5)/mean(summary(:,2));
-
+summary(:,2:6) = summary(:,2:6)/mean(summary(:,2));
+summary(:,7:11) = summary(:,7:11)/mean(summary(:,7));
+all2 = array2table(summary);
+all2.Properties.VariableNames = {'Wing', 'Tubulin_puncta', 'Tubulin_puncta_halo', 'Tubulin_nopuncta', 'Tubulin_nonpuncta_halo', 'Tubulin_cyto',...
+    'Ds_puncta', 'Ds_puncta_halo', 'Ds_nopuncta', 'Ds_nopuncta_halo', 'Ds_cyto'};
 writetable(all,'proximity.csv');
+writetable(all2,'proximity_normalised.csv');
 cd(currdir);
 
 

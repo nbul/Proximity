@@ -115,7 +115,8 @@ for k=1:numel(files_tif)
     summary(k,:) = [k, Signal_Ske_P, Signal_Ske_halo, Signal_Ske_nonP, Signal_Ske_nonP_halo, Signal_Ske_cyto,...
         Signal_Bor_P, Signal_Bor_halo, Signal_Bor_nonP, Signal_Bor_nonP_halo, Signal_Bor_cyto];
     
-    
+    CC = bwconncomp(bwareaopen(Signal_P,10),8);
+    S = regionprops(CC,'Area');
 end
 
 
