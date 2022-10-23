@@ -31,6 +31,7 @@ files_tif = dir('*.tif');
 
 %%introduce here the number of columns in the summary table
 summary = zeros(numel(files_tif),11);
+summary2 = zeros(numel(files_tif)+1,2);
 %%write a loop that gets data
 for k=1:numel(files_tif)
     
@@ -122,18 +123,26 @@ for k=1:numel(files_tif)
     IntensitySke = regionprops(CC, SignalSke, 'MeanIntensity');
     IntensityBor = regionprops(CC, SignalBor, 'MeanIntensity');
     
+    [r,p] = corrcoef([IntensityBor.MeanIntensity]', [IntensitySke.MeanIntensity]');
+    summary2(k,:) = [r(1,2), p(1,2)];
+    
     Intensity_corr = [Intensity_corr; [IntensityBor.MeanIntensity]', [IntensitySke.MeanIntensity]'];
 end
 
 
 cd(filedir);
 Intensity_corr(1,:) = [];
-[r, p] = corrcoef(Intensity_corr(:,1), Intensity_corr(:,2));
+[r,p] = corrcoef(Intensity_corr(:,1), Intensity_corr(:,2));
 
-Intensity_corr = [Intensity_corr; 0,0; r(1,2), p(1,2)];
+summary2(end,:) = [r(1,2), p(1,2)];
+
 correlation = array2table(Intensity_corr);
 correlation.Properties.VariableNames = {'PCP', 'Signal'};
 writetable(correlation,'punctaintensities.csv');
+
+correlation2 = array2table(summary2);
+correlation2.Properties.VariableNames = {'r', 'pvalue'};
+writetable(correlation2,'punctacorrelation.csv');
 
 all = array2table(summary);
 all.Properties.VariableNames = {'Wing', 'Tubulin_puncta', 'Tubulin_puncta_halo', 'Tubulin_nopuncta', 'Tubulin_nonpuncta_halo', 'Tubulin_cyto',...
